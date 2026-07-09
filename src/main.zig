@@ -30,6 +30,31 @@ fn newgame() void {
     game = comptime try board.parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
+fn load_position(pos: []const u8) !void {
+    var remainder = pos;
+    if (std.mem.startsWith(u8, remainder, "fen ")) {
+        remainder = remainder["fen ".len..];
+
+        if (std.mem.startsWith(u8, remainder, "startpos")) {
+            newgame();
+        }
+        else {
+            const fen_part = if (std.mem.indexOf(u8, remainder, " moves")) |index|
+                remainder[0..index]
+            else
+                remainder;
+            game = try board.parse_fen(fen_part);
+        }
+    }
+
+    const moves = pos[(std.mem.indexOf(u8, pos, "moves") orelse return error.invalid_uci_command_format)+("moves ".len)..];
+
+    var it = std.mem.tokenizeScalar(u8, moves, ' ');
+    while (it.next()) |move| {
+        try game.make_move(move);
+    }
+}
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
@@ -42,7 +67,6 @@ pub fn main(init: std.process.Init) !void {
     const stdin = &stdin_file_reader.interface;
 
     newgame();
-    std.debug.print("{}\n", .{game});
 
     while (true) {
         const command = try stdin.takeDelimiter('\n') orelse {return;};
@@ -53,8 +77,9 @@ pub fn main(init: std.process.Init) !void {
         switch (cmd) {
             .uci => try stdout.writeAll(uci_info),
             .isready => {newgame(); try stdout.writeAll("readyok\n");},
-            .go => try stdout.writeAll("info score cp 670 pv e2e4\nbestmove e2e4\n"),
-            .setoption,.position => {},
+            .go => try stdout.writeAll("info score cp 670 pv e2e3\nbestmove e2e4\n"),
+            .setoption => {},
+            .position => try load_position(it.rest()),
             .ucinewgame => newgame(),
             .default => diemsg("unknown command")
         }
