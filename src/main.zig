@@ -2,10 +2,11 @@ const std = @import("std");
 const Io = std.Io;
 
 const board = @import("board.zig");
+const gui = @import("gui.zig");
 
 var game: board.Board = undefined;
 
-const Uci_command = enum {default, uci, isready, setoption, position, go, ucinewgame};
+const Uci_command = enum {default, uci, isready, setoption, position, go, ucinewgame,  gui};
 
 const command_map = std.StaticStringMap(Uci_command).initComptime(.{
     .{ "uci", .uci },
@@ -15,6 +16,7 @@ const command_map = std.StaticStringMap(Uci_command).initComptime(.{
     .{ "go", .go },
     .{ "ucinewgame", .ucinewgame },
 
+    .{ "gui", .gui },
 });
 
 fn diemsg(msg: []const u8) noreturn {
@@ -51,7 +53,7 @@ fn load_position(pos: []const u8) !void {
 
     var it = std.mem.tokenizeScalar(u8, moves, ' ');
     while (it.next()) |move| {
-        try game.make_move(move);
+        try game.make_move_lan(move);
     }
 }
 
@@ -78,9 +80,10 @@ pub fn main(init: std.process.Init) !void {
             .uci => try stdout.writeAll(uci_info),
             .isready => {newgame(); try stdout.writeAll("readyok\n");},
             .go => try stdout.writeAll("info score cp 670 pv e2e3\nbestmove e2e4\n"),
-            .setoption => {},
             .position => try load_position(it.rest()),
             .ucinewgame => newgame(),
+            .gui => {try gui.run_gui(&game);},
+            .setoption => {},
             .default => diemsg("unknown command")
         }
 

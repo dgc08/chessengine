@@ -6,7 +6,7 @@ pub fn location_to_int(loc: []const u8) !u8 {
     return (loc[0] - 'a') + 8*('8'-loc[1]);
 }
 
-pub const Pieces = enum {
+pub const Piece = enum {
     empty,
 
     wpawn,
@@ -25,7 +25,7 @@ pub const Pieces = enum {
 };
 
 pub const Board = struct {
-    squares: [64]Pieces,
+    squares: [64]Piece,
 
     white_move: bool,
 
@@ -40,14 +40,45 @@ pub const Board = struct {
     plys_to_draw: u8,
     plynr: u32,
 
-    pub fn make_move(self: *Board, move: []const u8) !void {
+    pub fn make_move_lan(self: *Board, move: []const u8) !void {
         if (!(move.len == 4 or move.len == 5)) return error.invalid_lan_move_notation;
         const from = try location_to_int(move[0..2]);
         const to = try location_to_int(move[2..4]);
 
-        const moved_pawn = self.squares[from] == Pieces.bpawn or self.squares[from] == Pieces.wpawn;
+        // promotion
+        var prom: ?Piece = null;
+        if (move.len == 5) {
+            if (self.squares[to] == Piece.bpawn) {
+                prom = switch (move[4]) {
+                    'p' => Piece.bpawn,
+                    'r' => Piece.brook,
+                    'b' => Piece.bbishop,
+                    'n' => Piece.bknight,
+                    'q' => Piece.bqueen,
+                    'k' => Piece.bking,
+                    else => return error.invalid_lan_move_notation,
+                };
+            }
+            else if (self.squares[to] == Piece.wpawn) {
+                prom = switch (move[4]) {
+                    'p' => Piece.wpawn,
+                    'r' => Piece.wrook,
+                    'b' => Piece.wbishop,
+                    'n' => Piece.wknight,
+                    'q' => Piece.wqueen,
+                    'k' => Piece.wking,
+                    else => return error.invalid_lan_move_notation,
+                };
+            }
+        }
 
-        if (moved_pawn or self.squares[to] != Pieces.empty)
+        return self.make_move(from, to, prom);
+    }
+
+    pub fn make_move(self: *Board, from: u8, to: u8, promotion: ?Piece) !void {
+        const moved_pawn = self.squares[from] == Piece.bpawn or self.squares[from] == Piece.wpawn;
+
+        if (moved_pawn or self.squares[to] != Piece.empty)
             self.plys_to_draw = 0;
 
         //remove castling rights
@@ -63,27 +94,18 @@ pub const Board = struct {
             else => {}
         } 
 
-
-        //set en passant square
-        self.en_passant_square = null;
-        if (moved_pawn) {
-            if (@abs(@as(i16, from) - @as(i16, to)) == 16) {
-                self.en_passant_square = (from+to)/2;
-            }
-        }
-
-
         // do move
         self.squares[to] = self.squares[from];
-        self.squares[from] = Pieces.empty;
+        self.squares[from] = Piece.empty;
 
         //en passant
         if (self.en_passant_square) |ep_sq| {
             if (to == ep_sq) {
+                std.debug.print("en passant\n", .{});
                 if (self.white_move) {
-                    self.squares[ep_sq + 8] = Pieces.empty;
+                    self.squares[ep_sq + 8] = Piece.empty;
                 } else {
-                    self.squares[ep_sq - 8] = Pieces.empty;
+                    self.squares[ep_sq - 8] = Piece.empty;
                 }
             }
         }
@@ -94,14 +116,14 @@ pub const Board = struct {
                 comptime try location_to_int("g1") => {
                     const rook = comptime try location_to_int("h1");
                     const rook_to = comptime try location_to_int("f1");
-                    self.squares[rook] = Pieces.empty;
-                    self.squares[rook_to] = Pieces.wrook;
+                    self.squares[rook] = Piece.empty;
+                    self.squares[rook_to] = Piece.wrook;
                 },
                 comptime try location_to_int("c1") => {
                     const rook = comptime try location_to_int("a1");
                     const rook_to = comptime try location_to_int("d1");
-                    self.squares[rook] = Pieces.empty;
-                    self.squares[rook_to] = Pieces.wrook;
+                    self.squares[rook] = Piece.empty;
+                    self.squares[rook_to] = Piece.wrook;
                 },
                 else => {}
             }
@@ -111,42 +133,28 @@ pub const Board = struct {
                 comptime try location_to_int("g8") => {
                     const rook = comptime try location_to_int("h8");
                     const rook_to = comptime try location_to_int("f8");
-                    self.squares[rook] = Pieces.empty;
-                    self.squares[rook_to] = Pieces.wrook;
+                    self.squares[rook] = Piece.empty;
+                    self.squares[rook_to] = Piece.brook;
                 },
                 comptime try location_to_int("c8") => {
                     const rook = comptime try location_to_int("a8");
                     const rook_to = comptime try location_to_int("d8");
-                    self.squares[rook] = Pieces.empty;
-                    self.squares[rook_to] = Pieces.wrook;
+                    self.squares[rook] = Piece.empty;
+                    self.squares[rook_to] = Piece.brook;
                 },
                 else => {}
             }
         }
-        
-        // promotion
-        if (move.len == 5) {
-            if (self.squares[to] == Pieces.bpawn) {
-                self.squares[to] = switch (move[4]) {
-                    'p' => Pieces.bpawn,
-                    'r' => Pieces.brook,
-                    'b' => Pieces.bbishop,
-                    'n' => Pieces.bknight,
-                    'q' => Pieces.bqueen,
-                    'k' => Pieces.bking,
-                    else => return error.invalid_lan_move_notation,
-                };
-            }
-            else {
-                self.squares[to] = switch (move[4]) {
-                    'p' => Pieces.wpawn,
-                    'r' => Pieces.wrook,
-                    'b' => Pieces.wbishop,
-                    'n' => Pieces.wknight,
-                    'q' => Pieces.wqueen,
-                    'k' => Pieces.wking,
-                    else => return error.invalid_lan_move_notation,
-                };
+
+        if (promotion) |prom| {
+            self.squares[to] = prom;
+        }
+
+        //set en passant square
+        self.en_passant_square = null;
+        if (moved_pawn) {
+            if (@abs(@as(i16, from) - @as(i16, to)) == 16) {
+                self.en_passant_square = (from+to)/2;
             }
         }
 
@@ -171,25 +179,25 @@ pub fn parse_fen (fen: []const u8) !Board {
             if (i > 63) return error.invalid_fen;
             if (std.ascii.isDigit(char)) {
                 for (0..(char-'0')) |_| {
-                    board.squares[i] = Pieces.empty;
+                    board.squares[i] = Piece.empty;
                     i+=1;
                 }
             }
             else {
                 board.squares[i] = switch (char) {
-                    'P' => Pieces.wpawn,
-                    'R' => Pieces.wrook,
-                    'B' => Pieces.wbishop,
-                    'N' => Pieces.wknight,
-                    'Q' => Pieces.wqueen,
-                    'K' => Pieces.wking,
+                    'P' => Piece.wpawn,
+                    'R' => Piece.wrook,
+                    'B' => Piece.wbishop,
+                    'N' => Piece.wknight,
+                    'Q' => Piece.wqueen,
+                    'K' => Piece.wking,
 
-                    'p' => Pieces.bpawn,
-                    'r' => Pieces.brook,
-                    'b' => Pieces.bbishop,
-                    'n' => Pieces.bknight,
-                    'q' => Pieces.bqueen,
-                    'k' => Pieces.bking,
+                    'p' => Piece.bpawn,
+                    'r' => Piece.brook,
+                    'b' => Piece.bbishop,
+                    'n' => Piece.bknight,
+                    'q' => Piece.bqueen,
+                    'k' => Piece.bking,
                     else => return error.unkown_piece
                 };
 
