@@ -2,7 +2,9 @@ const std = @import("std");
 const Io = std.Io;
 
 const board = @import("board.zig");
-const gui = @import("gui.zig");
+const config = @import("config");
+
+pub const gui = if (config.enable_gui) @import("gui.zig") else struct {};
 
 var game: board.Board = undefined;
 
@@ -82,7 +84,12 @@ pub fn main(init: std.process.Init) !void {
             .go => try stdout.writeAll("info score cp 670 pv e2e3\nbestmove e2e4\n"),
             .position => try load_position(it.rest()),
             .ucinewgame => newgame(),
-            .gui => {try gui.run_gui(&game);},
+            .gui => {
+                if (config.enable_gui)
+                    try gui.run_gui(&game)
+                else
+                    try stdout.writeAll("GUI feature is disabled in this build\n");
+            },
             .setoption => {},
             .default => diemsg("unknown command")
         }

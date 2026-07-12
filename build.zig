@@ -21,6 +21,15 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    const enable_gui = b.option(
+        bool,
+        "enable-gui",
+        "Enable the raylib gui",
+    ) orelse false;
+
+    const exe_options = b.addOptions();
+    exe_options.addOption(bool, "enable_gui", enable_gui);
+
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
     // to the module defined above, it's sometimes preferable to split business
@@ -44,7 +53,6 @@ pub fn build(b: *std.Build) void {
             // unlike b.addModule, it does not expose the module to consumers of
             // this package, which is why in this case we don't have to give it a name.
             .root_source_file = b.path("src/main.zig"),
-            .link_libc = true,
             // Target and optimization levels must be explicitly wired in when
             // defining an executable or library (in the root module), and you
             // can also hardcode a specific target for an executable or library
@@ -54,7 +62,11 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.root_module.linkSystemLibrary("raylib", .{});
+    exe.root_module.addImport("config", exe_options.createModule());
+    if (enable_gui) {
+        exe.root_module.link_libc = true;
+        exe.root_module.linkSystemLibrary("raylib", .{});
+    }
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
