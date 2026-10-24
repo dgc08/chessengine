@@ -12,6 +12,7 @@ pub fn run_gui(game: *board.Board) !void {
     const screenWidth = 8*square_size;
     const screenHeight = 8*square_size;
 
+    rl.SetConfigFlags(rl.FLAG_WINDOW_RESIZABLE | rl.FLAG_WINDOW_HIGHDPI);
     rl.InitWindow(screenWidth, screenHeight, "Chess");
     defer rl.CloseWindow();
     rl.SetTargetFPS(60);
@@ -55,7 +56,7 @@ pub fn run_gui(game: *board.Board) !void {
                         else if (!game.white_move and y==7) board.Piece.bqueen
                         else null;
 
-                    try game.make_move(from, sq, prom);
+                    try game.make_move(.{.from=from, .to=sq}, prom);
                 }
             }
 

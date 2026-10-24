@@ -24,6 +24,11 @@ pub const Piece = enum {
     bking
 };
 
+pub const Move = struct {
+    from: u8,
+    to: u8
+};
+
 pub const Board = struct {
     squares: [64]Piece,
 
@@ -72,10 +77,13 @@ pub const Board = struct {
             }
         }
 
-        return self.make_move(from, to, prom);
+        return self.make_move(.{.from=from, .to=to}, prom);
     }
 
-    pub fn make_move(self: *Board, from: u8, to: u8, promotion: ?Piece) !void {
+    pub fn make_move(self: *Board, move: Move, promotion: ?Piece) !void {
+        const from = move.from;
+        const to = move.to;
+
         const moved_pawn = self.squares[from] == Piece.bpawn or self.squares[from] == Piece.wpawn;
 
         if (moved_pawn or self.squares[to] != Piece.empty)

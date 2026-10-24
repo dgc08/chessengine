@@ -43,11 +43,15 @@ fn load_position(pos: []const u8) !void {
             newgame();
         }
         else {
-            const fen_part = if (std.mem.indexOf(u8, remainder, " moves")) |index|
-                remainder[0..index]
-            else
-                remainder;
-            game = try board.parse_fen(fen_part);
+            if (std.mem.indexOf(u8, remainder, " moves")) |index| {
+                const fen_part = remainder[0..index];
+                
+                game = try board.parse_fen(fen_part);
+            }
+            else {
+                game = try board.parse_fen(remainder);
+                return;
+            }
         }
     }
 
